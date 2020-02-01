@@ -19,6 +19,8 @@ test$lower <- test$x * 0.9
 thepc_data <- data.table(read.xlsx("/ihme/homes/rahulrz6/THE_data_USD2017_all_years.xlsx"))[, Indicators := NULL]
 thepc_data <- thepc_data[, X3 := NULL]
 thepc_data <- thepc_data[!is.na(Countries)]
+
+# convert from wide data format to long for easier processing
 thepc_data_long <- melt(thepc_data, id.vars = c("Countries"), measure.vars = c("2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017"), variable.name = "year", value.name = "value")
 thepc_data_long$value <- as.numeric(thepc_data_long$value)
 colnames(thepc_data_long) <- c("location_name","year","value")
@@ -263,19 +265,24 @@ dev.off()
 ghepc_data <- data.table(read.xlsx("/ihme/homes/rahulrz6/GHE_data_USD2017.xlsx"))[, Indicators := NULL]
 ghepc_data <- ghepc_data[, X3 := NULL]
 ghepc_data <- ghepc_data[!is.na(Countries)]
+
+# convert from wide data format to long for easier processing
 ghepc_data_long <- melt(ghepc_data, id.vars = c("Countries"), measure.vars = c("2017"), variable.name = "year", value.name = "value")
 ghepc_data_long$value <- as.numeric(ghepc_data_long$value)
+
+# summarize the values across multiple rows for each country
 ghepc_data_smm <- ghepc_data_long[, .(value_totes = sum(value, na.rm = T)), by = Countries]
 colnames(ghepc_data_smm) <- c("location_name","value")
 
+# merge the WHO and IHME data tables to get ISO3 values for each country
 ghepc_raw <- merge(ghepc_data_smm, iso3_dat[, .(location_name, ihme_loc_id, super_region_name)], by=c("location_name"), all.x = T)
 
+# fix remaining issues with locations for efficient plotting
 ghepc_raw[location_name == "Bolivia Plurinational States of ", ihme_loc_id:= "BOL"]
 ghepc_raw[location_name == "Czech Republic", ihme_loc_id:= "CZE"]
 ghepc_raw[location_name == "Iran", ihme_loc_id:= "IRN"]
 ghepc_raw[location_name == "The Republic of North Macedonia", ihme_loc_id:= "MKD"]
 ghepc_raw[is.na(ihme_loc_id), ihme_loc_id:= "CIV"]
-
 ghepc_raw[ihme_loc_id %in% c("CZE", "MKD"), super_region_name := "Central Europe, Eastern Europe, and Central Asia"]
 ghepc_raw[ihme_loc_id == "IRN", super_region_name := "North Africa and Middle East"]
 ghepc_raw[ihme_loc_id == "CIV", super_region_name := "Sub-Saharan Africa"]
@@ -290,6 +297,7 @@ colnames(ghepc_ihme) <- c("iso3","ihme_value")
 # currency convert USD 2019 estimates to USD 2017
 ghepc_ihme_converted <- currency_conversion(ghepc_ihme, col.loc = "iso3", col.value = "ihme_value", currency = "usd", currency.year = 2019, base.year = 2017, base.unit = "usd")
 
+# merge the WHO estimates with IHME estimates for plotting
 ghepc_merged <- merge(ghepc_raw, ghepc_ihme_converted, by=c("iso3"), all.x = T)
 
 ##########################################################################################################################################################################################
@@ -298,20 +306,27 @@ ghepc_merged <- merge(ghepc_raw, ghepc_ihme_converted, by=c("iso3"), all.x = T)
 ppppc_data <- data.table(read.xlsx("/ihme/homes/rahulrz6/PPP_data_USD2017.xlsx"))[, Indicators := NULL]
 ppppc_data <- ppppc_data[, X3 := NULL]
 ppppc_data <- ppppc_data[!is.na(Countries)]
+
+# convert from wide data format to long for easier processing
 ppppc_data_long <- melt(ppppc_data, id.vars = c("Countries"), measure.vars = c("2017"), variable.name = "year", value.name = "value")
 ppppc_data_long$value <- as.numeric(ppppc_data_long$value)
+
+# summarize the values across multiple rows for each country
 ppppc_data_smm <- ppppc_data_long[, .(value_totes = sum(value, na.rm = T)), by = Countries]
+
+# fix issues with NAs when summarizing for countries with no data
 ppppc_data_smm[value_totes == 0, value_totes := NA]
 colnames(ppppc_data_smm) <- c("location_name","value")
 
+# merge the WHO and IHME data tables to get ISO3 values for each country
 ppppc_raw <- merge(ppppc_data_smm, iso3_dat[, .(location_name, ihme_loc_id, super_region_name)], by=c("location_name"), all.x = T)
 
+# fix remaining issues with locations for efficient plotting
 ppppc_raw[location_name == "Bolivia Plurinational States of ", ihme_loc_id:= "BOL"]
 ppppc_raw[location_name == "Czech Republic", ihme_loc_id:= "CZE"]
 ppppc_raw[location_name == "Iran", ihme_loc_id:= "IRN"]
 ppppc_raw[location_name == "The Republic of North Macedonia", ihme_loc_id:= "MKD"]
 ppppc_raw[is.na(ihme_loc_id), ihme_loc_id:= "CIV"]
-
 ppppc_raw[ihme_loc_id %in% c("CZE", "MKD"), super_region_name := "Central Europe, Eastern Europe, and Central Asia"]
 ppppc_raw[ihme_loc_id == "IRN", super_region_name := "North Africa and Middle East"]
 ppppc_raw[ihme_loc_id == "CIV", super_region_name := "Sub-Saharan Africa"]
@@ -326,6 +341,7 @@ colnames(ppppc_ihme) <- c("iso3","ihme_value")
 # currency convert USD 2019 estimates to USD 2017
 ppppc_ihme_converted <- currency_conversion(ppppc_ihme, col.loc = "iso3", col.value = "ihme_value", currency = "usd", currency.year = 2019, base.year = 2017, base.unit = "usd")
 
+# merge the WHO estimates with IHME estimates for plotting
 ppppc_merged <- merge(ppppc_raw, ppppc_ihme_converted, by=c("iso3"), all.x = T)
 
 ##########################################################################################################################################################################################
@@ -334,19 +350,22 @@ ppppc_merged <- merge(ppppc_raw, ppppc_ihme_converted, by=c("iso3"), all.x = T)
 ooppc_data <- data.table(read.xlsx("/ihme/homes/rahulrz6/OOP_data_USD2017.xlsx"))[, Indicators := NULL]
 ooppc_data <- ooppc_data[, X3 := NULL]
 ooppc_data <- ooppc_data[!is.na(Countries)]
+
+# convert from wide data format to long for easier processing
 ooppc_data_long <- melt(ooppc_data, id.vars = c("Countries"), measure.vars = c("2017"), variable.name = "year", value.name = "value")
 ooppc_data_long$value <- as.numeric(ooppc_data_long$value)
 ooppc_data_smm <- ooppc_data_long[, .(Countries, value)]
 colnames(ooppc_data_smm) <- c("location_name","value")
 
+# merge the WHO and IHME data tables to get ISO3 values for each country
 ooppc_raw <- merge(ooppc_data_smm, iso3_dat[, .(location_name, ihme_loc_id, super_region_name)], by=c("location_name"), all.x = T)
 
+# fix remaining issues with locations for efficient plotting
 ooppc_raw[location_name == "Bolivia Plurinational States of ", ihme_loc_id:= "BOL"]
 ooppc_raw[location_name == "Czech Republic", ihme_loc_id:= "CZE"]
 ooppc_raw[location_name == "Iran", ihme_loc_id:= "IRN"]
 ooppc_raw[location_name == "The Republic of North Macedonia", ihme_loc_id:= "MKD"]
 ooppc_raw[is.na(ihme_loc_id), ihme_loc_id:= "CIV"]
-
 ooppc_raw[ihme_loc_id %in% c("CZE", "MKD"), super_region_name := "Central Europe, Eastern Europe, and Central Asia"]
 ooppc_raw[ihme_loc_id == "IRN", super_region_name := "North Africa and Middle East"]
 ooppc_raw[ihme_loc_id == "CIV", super_region_name := "Sub-Saharan Africa"]
@@ -361,6 +380,7 @@ colnames(ooppc_ihme) <- c("iso3","ihme_value")
 # currency convert USD 2019 estimates to USD 2017
 ooppc_ihme_converted <- currency_conversion(ooppc_ihme, col.loc = "iso3", col.value = "ihme_value", currency = "usd", currency.year = 2019, base.year = 2017, base.unit = "usd")
 
+# merge the WHO estimates with IHME estimates for plotting
 ooppc_merged <- merge(ooppc_raw, ooppc_ihme_converted, by=c("iso3"), all.x = T)
 
 ##########################################################################################################################################################################################
@@ -369,19 +389,22 @@ ooppc_merged <- merge(ooppc_raw, ooppc_ihme_converted, by=c("iso3"), all.x = T)
 dahpc_data <- data.table(read.xlsx("/ihme/homes/rahulrz6/DAH_data_USD2017.xlsx"))[, Indicators := NULL]
 dahpc_data <- dahpc_data[, X3 := NULL]
 dahpc_data <- dahpc_data[!is.na(Countries)]
+
+# convert from wide data format to long for easier processing
 dahpc_data_long <- melt(dahpc_data, id.vars = c("Countries"), measure.vars = c("2017"), variable.name = "year", value.name = "value")
 dahpc_data_long$value <- as.numeric(dahpc_data_long$value)
 dahpc_data_smm <- dahpc_data_long[, .(Countries, value)]
 colnames(dahpc_data_smm) <- c("location_name","value")
 
+# merge the WHO and IHME data tables to get ISO3 values for each country
 dahpc_raw <- merge(dahpc_data_smm, iso3_dat[, .(location_name, ihme_loc_id, super_region_name)], by=c("location_name"), all.x = T)
 
+# fix remaining issues with locations for efficient plotting
 dahpc_raw[location_name == "Bolivia Plurinational States of ", ihme_loc_id:= "BOL"]
 dahpc_raw[location_name == "Czech Republic", ihme_loc_id:= "CZE"]
 dahpc_raw[location_name == "Iran", ihme_loc_id:= "IRN"]
 dahpc_raw[location_name == "The Republic of North Macedonia", ihme_loc_id:= "MKD"]
 dahpc_raw[is.na(ihme_loc_id), ihme_loc_id:= "CIV"]
-
 dahpc_raw[ihme_loc_id %in% c("CZE", "MKD"), super_region_name := "Central Europe, Eastern Europe, and Central Asia"]
 dahpc_raw[ihme_loc_id == "IRN", super_region_name := "North Africa and Middle East"]
 dahpc_raw[ihme_loc_id == "CIV", super_region_name := "Sub-Saharan Africa"]
@@ -396,6 +419,7 @@ colnames(dahpc_ihme) <- c("iso3","ihme_value")
 # currency convert USD 2019 estimates to USD 2017
 dahpc_ihme_converted <- currency_conversion(dahpc_ihme, col.loc = "iso3", col.value = "ihme_value", currency = "usd", currency.year = 2019, base.year = 2017, base.unit = "usd")
 
+# merge the WHO estimates with IHME estimates for plotting
 dahpc_merged <- merge(dahpc_raw, dahpc_ihme_converted, by=c("iso3"), all.x = T)
 
 ##########################################################################################################################################################################################
